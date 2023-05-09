@@ -29,6 +29,7 @@ from optim_factory import create_optimizer
 from utils import NativeScalerWithGradNormCount as NativeScaler
 from utils import multiple_pretrain_samples_collate
 
+import wandb
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -36,7 +37,7 @@ def get_args():
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--save_ckpt_freq', default=50, type=int)
-
+    parser.add_argument('--use_wandb', action='store_true', default=False)
     # Model parameters
     parser.add_argument(
         '--model',
@@ -273,6 +274,11 @@ def main(args):
 
     device = torch.device(args.device)
 
+    # Set wandb args and run name
+    if args.use_wandb:
+        run_name = args.output_dir.split('/')[-1]
+        wandb.init(project="ClinicalMAE", config=args, name=run_name)
+
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
@@ -411,7 +417,9 @@ def main(args):
             lr_schedule_values=lr_schedule_values,
             wd_schedule_values=wd_schedule_values,
             patch_size=patch_size[0],
-            normlize_target=args.normlize_target)
+            normlize_target=args.normlize_target,
+            use_wandb = args.use_wandb
+        )
         if args.output_dir:
             _epoch = epoch + 1
             if _epoch % args.save_ckpt_freq == 0 or _epoch == args.epochs:

@@ -1,3 +1,4 @@
+protobuf==3.20.0
 av
 decord
 deepspeed
@@ -7,7 +8,6 @@ numpy
 opencv-python
 pandas
 Pillow
-python>=3.8
 scipy
 tensorboard==2.9.0
 tensorboardX==1.8
@@ -16,3 +16,4 @@ torch>=1.2
 torchaudio
 torchvision
 triton==1.0.0
+wandb
