@@ -38,6 +38,8 @@ def get_args():
     parser.add_argument('--epochs', default=300, type=int)
     parser.add_argument('--save_ckpt_freq', default=50, type=int)
     parser.add_argument('--use_wandb', action='store_true', default=False)
+    parser.add_argument('--no_slurm', action='store_true',
+default=False)
     # Model parameters
     parser.add_argument(
         '--model',
@@ -270,7 +272,7 @@ def get_model(args):
 def main(args):
     utils.init_distributed_mode(args)
 
-    print(args)
+    print("args:", args)
 
     device = torch.device(args.device)
 
@@ -418,7 +420,8 @@ def main(args):
             wd_schedule_values=wd_schedule_values,
             patch_size=patch_size[0],
             normlize_target=args.normlize_target,
-            use_wandb = args.use_wandb
+            use_wandb = args.use_wandb,
+            tube_size = args.tubelet_size,
         )
         if args.output_dir:
             _epoch = epoch + 1

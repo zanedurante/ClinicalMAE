@@ -16,6 +16,7 @@ from .modeling_pretrain import (
 __all__ = [
     'pretrain_videomae_small_patch16_224',
     'pretrain_videomae_base_patch16_224',
+    'pretrain_videomae_base_patch16_224_tube3',
     'pretrain_videomae_large_patch16_224',
     'pretrain_videomae_huge_patch16_224',
     'pretrain_videomae_giant_patch14_224',

@@ -30,7 +30,8 @@ def train_one_epoch(model: torch.nn.Module,
                     start_steps=None,
                     lr_schedule_values=None,
                     wd_schedule_values=None,
-                    use_wandb=False):
+                    use_wandb=False, 
+                    tube_size=2):
     model.train()
     metric_logger = utils.MetricLogger(delimiter="  ")
     metric_logger.add_meter(
@@ -79,7 +80,7 @@ def train_one_epoch(model: torch.nn.Module,
                 images_squeeze = rearrange(
                     unnorm_images,
                     'b c (t p0) (h p1) (w p2) -> b (t h w) (p0 p1 p2) c',
-                    p0=2,
+                    p0=tube_size, # TODO: Parameterize
                     p1=patch_size,
                     p2=patch_size)
                 images_norm = (images_squeeze - images_squeeze.mean(
@@ -91,7 +92,7 @@ def train_one_epoch(model: torch.nn.Module,
                 images_patch = rearrange(
                     unnorm_images,
                     'b c (t p0) (h p1) (w p2) -> b (t h w) (p0 p1 p2 c)',
-                    p0=2,
+                    p0=tube_size, # TODO: Parameterize
                     p1=patch_size,
                     p2=patch_size)
 

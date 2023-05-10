@@ -279,7 +279,7 @@ def init_distributed_mode(args):
         os.environ['RANK'] = str(args.rank)
         os.environ['WORLD_SIZE'] = str(args.world_size)
         # ["RANK", "WORLD_SIZE", "MASTER_ADDR", "MASTER_PORT", "LOCAL_RANK"]
-    elif 'SLURM_PROCID' in os.environ:
+    elif not args.no_slurm and 'SLURM_PROCID' in os.environ:
         args.rank = int(os.environ['SLURM_PROCID'])
         args.gpu = int(os.environ['SLURM_LOCALID'])
         args.world_size = int(os.environ['SLURM_NTASKS'])
@@ -296,6 +296,7 @@ def init_distributed_mode(args):
         args.rank = int(os.environ["RANK"])
         args.world_size = int(os.environ['WORLD_SIZE'])
         args.gpu = int(os.environ['LOCAL_RANK'])
+        print("====USING GPU: {}".format(args.gpu))
     else:
         print('Not using distributed mode')
         args.distributed = False
