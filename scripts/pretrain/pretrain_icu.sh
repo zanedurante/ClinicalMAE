@@ -4,7 +4,7 @@
 set -x  # print the commands
 
 # Uncomment when no longer debugging
-#export CUDA_LAUNCH_BLOCKING=1
+export CUDA_LAUNCH_BLOCKING=1
 
 # FOR LARGER RUNS, we should change num_workers to 10?
 
