@@ -10,10 +10,14 @@ export CUDA_LAUNCH_BLOCKING=1
 
 export MASTER_PORT=${MASTER_PORT:-12320}  # You should set the same master_port in all the nodes
 
-OUTPUT_DIR='./work_dir/vit_b_ucf101_pt_40e'  # Your output folder for deepspeed config file, logs and checkpoints
-DATA_PATH='/home/datasets/ucf101/video_mae_splits/pre-train/train.csv'  # The data list file path.
+# change output directory
+OUTPUT_DIR=''  # Your output folder for deepspeed config file, logs and checkpoints
+
+# Create csv for training
+# video_path, start frame, stop frame
+DATA_PATH=''  # The data list file path.
 # pretrain data list file follows the following format
-# for the video data line: video_path, 0, -1, 0
+# for the video data line: video_path, 0, -1
 # for the rawframe data line: frame_folder_path, start_index, total_frames, 0
 
 # TODO: Change values before final run
