@@ -20,6 +20,8 @@ import torch
 import torch.backends.cudnn as cudnn
 from packaging import version
 from timm.models import create_model
+import wandb
+from tqdm import tqdm
 
 # NOTE: Do not comment `import models`, it is used to register models
 import models  # noqa: F401
@@ -34,9 +36,10 @@ from utils import multiple_pretrain_samples_collate
 def get_args():
     parser = argparse.ArgumentParser(
         'VideoMAE v2 pre-training script', add_help=False)
-    parser.add_argument('--batch_size', default=64, type=int)
-    parser.add_argument('--epochs', default=300, type=int)
-    parser.add_argument('--save_ckpt_freq', default=50, type=int)
+    parser.add_argument('--use_wandb', action='store_true', default=True)
+    parser.add_argument('--batch_size', default=28, type=int)
+    parser.add_argument('--epochs', default=200, type=int)
+    parser.add_argument('--save_ckpt_freq', default=1, type=int)
 
     # Model parameters
     parser.add_argument(
@@ -47,7 +50,7 @@ def get_args():
         help='Name of model to train')
     parser.add_argument('--tubelet_size', type=int, default=2)
     parser.add_argument(
-        '--with_checkpoint', action='store_true', default=False)
+        '--with_checkpoint', action='store_true', default=True)
 
     parser.add_argument(
         '--decoder_depth', default=4, type=int, help='depth of decoder')
@@ -69,7 +72,7 @@ def get_args():
         '--mask_ratio', default=0.9, type=float, help='mask ratio of encoder')
     parser.add_argument(
         '--decoder_mask_ratio',
-        default=0.0,
+        default=0.5,
         type=float,
         help='mask ratio of decoder')
 
@@ -107,7 +110,7 @@ def get_args():
         help='Optimizer Epsilon (default: 1e-8)')
     parser.add_argument(
         '--opt_betas',
-        default=None,
+        default=[0.9, 0.95],
         type=float,
         nargs='+',
         metavar='BETA',
@@ -115,7 +118,7 @@ def get_args():
     parser.add_argument(
         '--clip_grad',
         type=float,
-        default=None,
+        default=0.02,
         metavar='NORM',
         help='Clip gradient norm (default: None, no clipping)')
     parser.add_argument(
@@ -141,7 +144,7 @@ def get_args():
     parser.add_argument(
         '--lr',
         type=float,
-        default=1.5e-4,
+        default=1e-3,
         metavar='LR',
         help='learning rate (default: 1.5e-4)')
     parser.add_argument(
@@ -160,7 +163,7 @@ def get_args():
     parser.add_argument(
         '--warmup_epochs',
         type=int,
-        default=40,
+        default=20,
         metavar='N',
         help='epochs to warmup LR, if scheduler supports')
     parser.add_argument(
@@ -191,11 +194,11 @@ def get_args():
     # Dataset parameters
     parser.add_argument(
         '--data_path',
-        default='/your/data/annotation/path',
+        default='/data/clips.txt',
         type=str,
         help='dataset path')
     parser.add_argument(
-        '--data_root', default='', type=str, help='dataset path root')
+        '--data_root', default='/data/icu', type=str, help='dataset path root')
     parser.add_argument(
         '--fname_tmpl',
         default='img_{:05}.jpg',
@@ -204,14 +207,14 @@ def get_args():
     parser.add_argument(
         '--imagenet_default_mean_and_std', default=True, action='store_true')
     parser.add_argument('--num_frames', type=int, default=16)
-    parser.add_argument('--sampling_rate', type=int, default=4)
-    parser.add_argument('--num_sample', type=int, default=1)
+    parser.add_argument('--sampling_rate', type=int, default=2)
+    parser.add_argument('--num_sample', type=int, default=4)
     parser.add_argument(
         '--output_dir',
-        default='',
+        default='/data/output/vit_b_hybrid_pt_800e',
         help='path where to save, empty for no saving')
     parser.add_argument(
-        '--log_dir', default=None, help='path where to tensorboard log')
+        '--log_dir', default='/data/output/vit_b_hybrid_pt_800e', help='path where to tensorboard log')
     parser.add_argument(
         '--device',
         default='cuda',
@@ -225,7 +228,7 @@ def get_args():
 
     parser.add_argument(
         '--start_epoch', default=0, type=int, metavar='N', help='start epoch')
-    parser.add_argument('--num_workers', default=10, type=int)
+    parser.add_argument('--num_workers', default=8, type=int)
     parser.add_argument(
         '--pin_mem',
         action='store_true',
@@ -278,6 +281,13 @@ def main(args):
 
     device = torch.device(args.device)
 
+    if args.use_wandb:
+        run_name = args.output_dir.split('/')[-1]
+        wandb.init(project='ClinicalMAE', 
+                   entity='cerc-pac', 
+                   config=args, 
+                   name=run_name)
+
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
@@ -305,7 +315,7 @@ def main(args):
 
     sampler_train = torch.utils.data.DistributedSampler(
         dataset_train, num_replicas=num_tasks, rank=sampler_rank, shuffle=True)
-    print("Sampler_train = %s" % str(sampler_train))
+    # print("Sampler_train = %s" % str(sampler_train))
 
     if global_rank == 0 and args.log_dir is not None:
         os.makedirs(args.log_dir, exist_ok=True)
@@ -327,8 +337,9 @@ def main(args):
         drop_last=True,
         collate_fn=collate_func,
         worker_init_fn=utils.seed_worker,
+        prefetch_factor=1,
         persistent_workers=True)
-
+    
     if args.finetune:
         checkpoint = torch.load(args.finetune, map_location='cpu')
 
@@ -349,7 +360,7 @@ def main(args):
     n_parameters = sum(p.numel() for p in model.parameters()
                        if p.requires_grad)
 
-    print("Model = %s" % str(model_without_ddp))
+    # print("Model = %s" % str(model_without_ddp))
     print('number of params: {} M'.format(n_parameters / 1e6))
 
     # scale the lr
@@ -416,7 +427,8 @@ def main(args):
             lr_schedule_values=lr_schedule_values,
             wd_schedule_values=wd_schedule_values,
             patch_size=patch_size[0],
-            normlize_target=args.normlize_target)
+            normlize_target=args.normlize_target,
+            use_wandb=args.use_wandb)
         if args.output_dir:
             _epoch = epoch + 1
             if _epoch % args.save_ckpt_freq == 0 or _epoch == args.epochs:
